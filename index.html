@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cannata's Fleet Inspection</title>
+<style>
+  :root {
+    --red: #E24B4A; --red-light: #FCEBEB; --red-dark: #791F1F;
+    --green: #639922; --green-light: #EAF3DE; --green-dark: #3B6D11;
+    --amber: #BA7517; --amber-light: #FAEEDA; --amber-dark: #633806;
+    --navy: #1a1a2e;
+    --bg: #f5f5f3; --surface: #ffffff; --border: #e0ddd6;
+    --text: #1a1a18; --muted: #6b6b67; --faint: #9b9b97;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .app { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+  .header { background: var(--navy); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; display: flex; align-items: center; gap: 14px; }
+  .header-icon { width: 46px; height: 46px; background: var(--red); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .header-icon svg { width: 26px; height: 26px; fill: none; stroke: white; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .header h1 { font-size: 17px; font-weight: 600; color: white; letter-spacing: -0.3px; }
+  .header p { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .header-date { margin-left: auto; text-align: right; color: rgba(255,255,255,0.65); font-size: 12px; line-height: 1.5; flex-shrink: 0; }
+
+  .progress-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+  .progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .progress-top span { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .progress-top strong { font-size: 12px; color: var(--text); }
+  .vehicle-pills { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .vpill { border-radius: var(--radius-sm); padding: 8px 4px; text-align: center; border: 1px solid var(--border); background: var(--bg); cursor: pointer; transition: all 0.15s; }
+  .vpill .vp-id { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+  .vpill .vp-st { font-size: 9px; color: var(--faint); margin-top: 3px; }
+  .vpill.active { border-color: var(--red); background: var(--red-light); }
+  .vpill.active .vp-id { color: var(--red-dark); }
+  .vpill.active .vp-st { color: var(--red); }
+  .vpill.cleared { border-color: var(--green); background: var(--green-light); }
+  .vpill.cleared .vp-id { color: var(--green-dark); }
+  .vpill.cleared .vp-st { color: var(--green); }
+  .vpill.damaged { border-color: var(--red); background: var(--red-light); }
+  .vpill.damaged .vp-id { color: var(--red-dark); }
+  .vpill.damaged .vp-st { color: var(--red); }
+  .vpill.unavail { border-color: var(--amber); background: var(--amber-light); }
+  .vpill.unavail .vp-id { color: var(--amber-dark); }
+  .vpill.unavail .vp-st { color: var(--amber); }
+
+  .unavail-toggle { display: flex; align-items: center; gap: 12px; background: var(--amber-light); border: 1px solid #EF9F27; border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; cursor: pointer; user-select: none; transition: all 0.15s; }
+  .unavail-toggle.on { background: var(--amber); border-color: var(--amber-dark); }
+  .ut-box { width: 22px; height: 22px; border-radius: 5px; border: 2px solid var(--amber); background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .unavail-toggle.on .ut-box { background: white; border-color: white; }
+  .ut-check { display: none; width: 13px; height: 13px; stroke: var(--amber); stroke-width: 2.5; fill: none; }
+  .unavail-toggle.on .ut-check { display: block; }
+  .ut-text h3 { font-size: 14px; font-weight: 600; color: var(--amber-dark); }
+  .unavail-toggle.on .ut-text h3 { color: white; }
+  .ut-text p { font-size: 12px; color: #854F0B; margin-top: 2px; }
+  .unavail-toggle.on .ut-text p { color: rgba(255,255,255,0.75); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card.locked { opacity: 0.4; pointer-events: none; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .field-grid.one { grid-template-columns: 1fr; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; font-size: 14px; font-family: inherit;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 9px 11px;
+    color: var(--text); transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--red); }
+  .field textarea { resize: vertical; min-height: 68px; }
+
+  .checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .ci { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: var(--radius-sm); padding: 8px 10px; border: 1px solid var(--border); transition: all 0.15s; }
+  .ci.ok { border-color: var(--green); background: var(--green-light); }
+  .ci.dmg { border-color: var(--red); background: var(--red-light); }
+  .ci.na { opacity: 0.5; }
+  .ci-label { font-size: 12px; color: var(--text); flex: 1; line-height: 1.3; }
+  .ci-btns { display: flex; gap: 3px; flex-shrink: 0; }
+  .cbtn { width: 25px; height: 25px; border-radius: 50%; border: 1px solid var(--border); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.12s; font-size: 10px; font-weight: 700; color: var(--muted); }
+  .cbtn:hover { transform: scale(1.12); }
+  .cbtn.ok-active { background: var(--green); border-color: var(--green); color: white; }
+  .cbtn.dmg-active { background: var(--red); border-color: var(--red); color: white; }
+  .cbtn.na-active { background: #888; border-color: #888; color: white; }
+
+  .dmg-counter { font-size: 10px; background: var(--red-light); color: var(--red-dark); border-radius: 20px; padding: 2px 8px; font-weight: 600; display: none; margin-left: auto; }
+  .dmg-counter.show { display: inline-block; }
+  .dmg-detail { background: var(--red-light); border: 1px solid #F7C1C1; border-radius: var(--radius-sm); padding: 12px; margin-top: 12px; display: none; }
+  .dmg-detail.show { display: block; }
+  .dmg-detail-title { font-size: 11px; font-weight: 600; color: var(--red-dark); margin-bottom: 10px; }
+  .dmg-field { margin-bottom: 10px; }
+  .dmg-field label { display: block; font-size: 11px; font-weight: 600; color: var(--red-dark); margin-bottom: 4px; }
+  .dmg-field textarea { width: 100%; font-size: 13px; font-family: inherit; background: white; border: 1px solid #F7C1C1; border-radius: var(--radius-sm); padding: 8px 10px; color: var(--text); min-height: 52px; resize: vertical; }
+
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .upload-zone { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 14px 10px; text-align: center; cursor: pointer; background: var(--bg); transition: all 0.15s; }
+  .upload-zone:hover { border-color: var(--red); }
+  .upload-zone.done { border-color: var(--green); background: var(--green-light); }
+  .upload-zone svg { width: 22px; height: 22px; stroke: var(--faint); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin: 0 auto 5px; display: block; }
+  .upload-zone.done svg { stroke: var(--green); }
+  .upload-zone p { font-size: 11px; color: var(--muted); }
+  .upload-zone.done p { color: var(--green-dark); font-weight: 500; }
+  .photo-preview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+  .photo-preview img { aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); width: 100%; }
+  input[type="file"] { display: none; }
+
+  .nav-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .nav-btn { flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; font-size: 14px; font-family: inherit; font-weight: 500; color: var(--text); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
+  .nav-btn:hover { background: var(--bg); }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .nav-btn.primary { background: var(--navy); color: white; border-color: var(--navy); }
+  .nav-btn.primary:hover { background: var(--red); border-color: var(--red); }
+
+  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .summary-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
+  .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 16px; }
+  .sc { border-radius: var(--radius-sm); padding: 10px 4px; text-align: center; border: 1px solid var(--border); background: var(--bg); }
+  .sc.ok { border-color: var(--green); background: var(--green-light); }
+  .sc.dmg { border-color: var(--red); background: var(--red-light); }
+  .sc.unavail { border-color: var(--amber); background: var(--amber-light); }
+  .sc.pending { border-color: var(--border); }
+  .sc-id { font-size: 11px; font-weight: 700; }
+  .sc.ok .sc-id { color: var(--green-dark); }
+  .sc.dmg .sc-id { color: var(--red-dark); }
+  .sc.unavail .sc-id { color: var(--amber-dark); }
+  .sc.pending .sc-id { color: var(--faint); }
+  .sc-st { font-size: 9px; margin-top: 3px; }
+  .sc.ok .sc-st { color: var(--green); }
+  .sc.dmg .sc-st { color: var(--red); }
+  .sc.unavail .sc-st { color: var(--amber); }
+  .sc.pending .sc-st { color: var(--faint); }
+
+  .sig-row { display: flex; gap: 10px; align-items: flex-end; }
+  .sig-field { flex: 1; }
+  .sig-field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .sig-field input { width: 100%; font-size: 14px; font-family: inherit; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); }
+  .sig-field input:focus { outline: none; border-color: var(--red); }
+  .submit-btn { background: var(--navy); color: white; border: none; border-radius: var(--radius); padding: 12px 22px; font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+  .submit-btn:hover { background: var(--red); }
+  .submit-btn:disabled { background: #aaa; cursor: not-allowed; }
+  .error-msg { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+  .error-msg.show { display: block; }
+
+  .sending { display: none; text-align: center; padding: 24px; }
+  .sending.show { display: block; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sending p { font-size: 14px; color: var(--muted); }
+
+  .success { display: none; background: var(--green-light); border: 1px solid var(--green); border-radius: var(--radius); padding: 28px 20px; text-align: center; }
+  .success.show { display: block; }
+  .success-icon { width: 52px; height: 52px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+  .success-icon svg { width: 28px; height: 28px; fill: none; stroke: white; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .success h2 { font-size: 18px; font-weight: 700; color: var(--green-dark); margin-bottom: 6px; }
+  .success p { font-size: 13px; color: var(--green-dark); opacity: 0.8; line-height: 1.6; }
+  .success .reset-btn { margin-top: 16px; background: var(--green); color: white; border: none; border-radius: var(--radius-sm); padding: 10px 20px; font-size: 14px; font-family: inherit; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 480px) {
+    .app { padding: 10px; }
+    .checklist { grid-template-columns: 1fr; }
+    .upload-grid { grid-template-columns: 1fr; }
+    .field-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </div>
+    <div class="header-text">
+      <h1>Fleet Vehicle Inspection</h1>
+      <p>Cannata's Family Markets — Houma, LA</p>
+    </div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+
+  <div class="progress-card">
+    <div class="progress-top">
+      <span>Daily inspection log</span>
+      <strong id="progressLabel">0 of 5 complete</strong>
+    </div>
+    <div class="vehicle-pills" id="vehiclePills"></div>
+  </div>
+
+  <div id="formArea"></div>
+  <div class="sending" id="sendingSpinner"><div class="spinner"></div><p>Submitting daily log to Google Sheets…</p></div>
+  <div class="success" id="successScreen">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2>Daily log submitted!</h2>
+    <p id="successDetail"></p>
+    <button class="reset-btn" onclick="resetForm()">Start new inspection day</button>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIGURATION ────────────────────────────────────────────────────────────
+// Replace this URL after you deploy the Google Apps Script (see SETUP-GUIDE.md)
+const SHEET_URL = 'https://script.google.com/a/macros/cannatas.com/s/AKfycbwugkIhn2z1MHl4Ebsj5fbIRjqC0rLhfr6R-fzcVhZaCW5glkQB05W6DezKyQyDn056/exec';
+
+const VEHICLES = [
+  { id: 'TRUCK-1', label: 'Truck 1' },
+  { id: 'TRUCK-2', label: 'Truck 2' },
+  { id: 'TRUCK-3', label: 'Truck 3' },
+  { id: 'TRUCK-4', label: 'Truck 4' },
+  { id: 'TRUCK-5', label: 'Truck 5' },
+];
+
+const CHECK_ITEMS = [
+  'Front bumper','Rear bumper','Driver door','Passenger door',
+  'Rear doors / gate','Hood','Roof','Windshield',
+  'Driver mirror','Passenger mirror','Tires (all)','Lights (all)',
+  'Undercarriage','Cargo area / bed','Lift gate','Refrigeration unit'
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
+let currentIdx = 0;
+
+const state = VEHICLES.map(v => ({
+  id: v.id, label: v.label,
+  done: false, unavailable: false,
+  inspector: '', plate: '', time: '',
+  damageState: {}, damageNotes: {},
+  notes: '', maintRef: '',
+  photos: []
+}));
+
+function initDate() {
+  const now = new Date();
+  document.getElementById('headerDate').innerHTML =
+    now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) +
+    '<br>' + now.getFullYear();
+}
+
+function updatePills() {
+  const container = document.getElementById('vehiclePills');
+  container.innerHTML = '';
+  let doneCount = 0;
+  state.forEach((v, i) => {
+    if (v.done || v.unavailable) doneCount++;
+    const hasDmg = Object.values(v.damageState).some(s => s === 'dmg');
+    let cls = 'vpill';
+    let st = 'Pending';
+    if (i === currentIdx) { cls += ' active'; st = 'In progress'; }
+    else if (v.unavailable) { cls += ' unavail'; st = 'Unavailable'; }
+    else if (v.done && hasDmg) { cls += ' damaged'; st = 'Damage'; }
+    else if (v.done) { cls += ' cleared'; st = 'Cleared'; }
+    const div = document.createElement('div');
+    div.className = cls;
+    div.innerHTML = `<div class="vp-id">${v.id}</div><div class="vp-st">${st}</div>`;
+    if ((v.done || v.unavailable) && i !== currentIdx) div.onclick = () => jumpTo(i);
+    container.appendChild(div);
+  });
+  document.getElementById('progressLabel').textContent = doneCount + ' of ' + VEHICLES.length + ' complete';
+}
+
+function jumpTo(i) {
+  saveFields();
+  currentIdx = i;
+  renderForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderForm() {
+  updatePills();
+  const area = document.getElementById('formArea');
+  area.innerHTML = '';
+  const v = state[currentIdx];
+
+  // Unavailability toggle
+  const ut = document.createElement('div');
+  ut.className = 'unavail-toggle' + (v.unavailable ? ' on' : '');
+  ut.id = 'unavailToggle';
+  ut.onclick = toggleUnavail;
+  ut.innerHTML = `
+    <div class="ut-box">
+      <svg class="ut-check" viewBox="0 0 13 13"><polyline points="1.5 6.5 5 10 11.5 2"/></svg>
+    </div>
+    <div class="ut-text">
+      <h3>${v.id} — Not available for inspection</h3>
+      <p>Check if vehicle is on delivery or otherwise unavailable today</p>
+    </div>`;
+  area.appendChild(ut);
+
+  // Vehicle form body
+  const body = document.createElement('div');
+  body.id = 'vehicleBody';
+  body.style.display = v.unavailable ? 'none' : 'block';
+  body.innerHTML = buildVehicleForm(currentIdx);
+  area.appendChild(body);
+
+  // Nav buttons
+  const nav = document.createElement('div');
+  nav.className = 'nav-row';
+  const isLast = currentIdx === VEHICLES.length - 1;
+  nav.innerHTML = `
+    <button class="nav-btn" onclick="prevVehicle()" ${currentIdx === 0 ? 'disabled' : ''}>
+      ← ${currentIdx > 0 ? state[currentIdx-1].id : 'Back'}
+    </button>
+    <button class="nav-btn primary" onclick="${isLast ? 'tryComplete()' : 'nextVehicle()'}">
+      ${isLast ? '✓ Review & Submit' : state[currentIdx+1].id + ' →'}
+    </button>`;
+  area.appendChild(nav);
+
+  // Final submit panel (only on last vehicle)
+  if (isLast) {
+    const sub = document.createElement('div');
+    sub.className = 'summary-card';
+    sub.id = 'submitPanel';
+    sub.innerHTML = `
+      <div class="summary-title">Daily log summary</div>
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="sig-row">
+        <div class="sig-field">
+          <label>Manager signature — type full name to confirm</label>
+          <input type="text" id="signature" placeholder="Full name" />
+        </div>
+        <button class="submit-btn" onclick="submitAll()">Submit →</button>
+      </div>
+      <div class="error-msg" id="errorMsg"></div>`;
+    area.appendChild(sub);
+    renderSummary();
+  }
+
+  restoreFields(currentIdx);
+}
+
+function buildVehicleForm(vi) {
+  const rows = CHECK_ITEMS.map((item, i) =>
+    `<div class="ci" id="ci-${vi}-${i}">
+      <span class="ci-label">${item}</span>
+      <div class="ci-btns">
+        <button class="cbtn" onclick="setCheck(${vi},${i},'ok')" title="Ok">✓</button>
+        <button class="cbtn" onclick="setCheck(${vi},${i},'dmg')" title="Damage">✕</button>
+        <button class="cbtn" onclick="setCheck(${vi},${i},'na')" title="N/A" style="font-size:8px;">N/A</button>
+      </div>
+    </div>`).join('');
+
+  const uploadZones = ['Front','Rear','Driver side','Passenger side','Interior / cargo','Other'].map((label, zi) =>
+    `<label for="upload-${vi}-${zi}">
+      <div class="upload-zone" id="zone-${vi}-${zi}">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <p id="zone-label-${vi}-${zi}">${label}</p>
+      </div>
+    </label>
+    <input type="file" id="upload-${vi}-${zi}" accept="image/*" multiple onchange="handleUpload(event,${vi},${zi},'${label}')" />`
+  ).join('');
+
+  return `
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Vehicle info — ${VEHICLES[vi].id}
+      </div>
+      <div class="field-grid">
+        <div class="field"><label>Inspector name</label><input type="text" id="inspector-${vi}" placeholder="Full name" /></div>
+        <div class="field"><label>Inspection time</label><input type="time" id="time-${vi}" /></div>
+      </div>
+      <div class="field-grid one">
+        <div class="field"><label>License plate (confirm)</label><input type="text" id="plate-${vi}" placeholder="e.g. ABC 1234" /></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Exterior & mechanical checklist
+        <span class="dmg-counter" id="counter-${vi}">0 issues</span>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:#6b6b67;margin-bottom:10px;">
+        <span>✓ = Ok</span><span>✕ = Damage</span><span>N/A = Not applicable</span>
+      </div>
+      <div class="checklist">${rows}</div>
+      <div class="dmg-detail" id="dmgDetail-${vi}">
+        <div class="dmg-detail-title">⚠ Describe each flagged damage item</div>
+        <div id="dmgFields-${vi}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Photo documentation
+      </div>
+      <div class="upload-grid">${uploadZones}</div>
+      <div class="photo-preview" id="photoPreview-${vi}"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Notes & maintenance
+      </div>
+      <div class="field-grid one" style="margin-bottom:10px;">
+        <div class="field">
+          <label>Damage / inspection notes (carries forward on daily log)</label>
+          <textarea id="notes-${vi}" placeholder="Describe any damage in detail — location on vehicle, size, prior unresolved issues…"></textarea>
+        </div>
+      </div>
+      <div class="field-grid one">
+        <div class="field">
+          <label>Maintenance referral needed?</label>
+          <select id="maint-${vi}">
+            <option value="">Select…</option>
+            <option>No</option>
+            <option>Yes — schedule routine</option>
+            <option>Yes — urgent / do not operate</option>
+          </select>
+        </div>
+      </div>
+    </div>`;
+}
+
+function restoreFields(vi) {
+  const v = state[vi];
+  const now = new Date();
+  const timeEl = document.getElementById('time-' + vi);
+  if (timeEl && !v.time) timeEl.value = now.toTimeString().slice(0,5);
+  else if (timeEl && v.time) timeEl.value = v.time;
+  const inspEl = document.getElementById('inspector-' + vi);
+  if (inspEl && v.inspector) inspEl.value = v.inspector;
+  const plateEl = document.getElementById('plate-' + vi);
+  if (plateEl && v.plate) plateEl.value = v.plate;
+  const notesEl = document.getElementById('notes-' + vi);
+  if (notesEl && v.notes) notesEl.value = v.notes;
+  const maintEl = document.getElementById('maint-' + vi);
+  if (maintEl && v.maintRef) maintEl.value = v.maintRef;
+  Object.entries(v.damageState).forEach(([i, s]) => { if (s) applyCheckStyle(vi, parseInt(i), s); });
+  updateDamagePanel(vi);
+  renderPhotoPreview(vi);
+}
+
+function saveFields() {
+  const vi = currentIdx;
+  const v = state[vi];
+  ['inspector','time','plate','notes','maint'].forEach(key => {
+    const el = document.getElementById(key + '-' + vi) || document.getElementById(key.replace('maint','maint') + '-' + vi);
+    if (key === 'maint') { const e = document.getElementById('maint-' + vi); if (e) v.maintRef = e.value; }
+    else if (key === 'notes') { const e = document.getElementById('notes-' + vi); if (e) v.notes = e.value; }
+    else if (key === 'inspector') { const e = document.getElementById('inspector-' + vi); if (e) v.inspector = e.value; }
+    else if (key === 'time') { const e = document.getElementById('time-' + vi); if (e) v.time = e.value; }
+    else if (key === 'plate') { const e = document.getElementById('plate-' + vi); if (e) v.plate = e.value; }
+  });
+  // Save damage textarea content
+  const fields = document.getElementById('dmgFields-' + vi);
+  if (fields) {
+    Array.from(fields.querySelectorAll('[data-idx]')).forEach(row => {
+      const idx = row.getAttribute('data-idx');
+      const ta = row.querySelector('textarea');
+      if (ta) v.damageNotes[idx] = ta.value;
+    });
+  }
+  if (!v.unavailable) v.done = true;
+}
+
+function toggleUnavail() {
+  const v = state[currentIdx];
+  v.unavailable = !v.unavailable;
+  if (v.unavailable) { v.done = false; }
+  document.getElementById('unavailToggle').classList.toggle('on', v.unavailable);
+  document.getElementById('vehicleBody').style.display = v.unavailable ? 'none' : 'block';
+  updatePills();
+  if (currentIdx === VEHICLES.length - 1) renderSummary();
+}
+
+function setCheck(vi, i, s) {
+  state[vi].damageState[i] = s;
+  applyCheckStyle(vi, i, s);
+  updateDamagePanel(vi);
+}
+
+function applyCheckStyle(vi, i, s) {
+  const ci = document.getElementById('ci-' + vi + '-' + i);
+  if (!ci) return;
+  ci.className = 'ci' + (s === 'ok' ? ' ok' : s === 'dmg' ? ' dmg' : s === 'na' ? ' na' : '');
+  const btns = ci.querySelectorAll('.cbtn');
+  btns.forEach(b => b.classList.remove('ok-active','dmg-active','na-active'));
+  if (s === 'ok') btns[0].classList.add('ok-active');
+  if (s === 'dmg') btns[1].classList.add('dmg-active');
+  if (s === 'na') btns[2].classList.add('na-active');
+}
+
+function updateDamagePanel(vi) {
+  const v = state[vi];
+  const damaged = Object.entries(v.damageState).filter(([,s]) => s === 'dmg');
+  const panel = document.getElementById('dmgDetail-' + vi);
+  const counter = document.getElementById('counter-' + vi);
+  if (!panel) return;
+  if (damaged.length > 0) {
+    panel.classList.add('show');
+    counter.classList.add('show');
+    counter.textContent = damaged.length + ' issue' + (damaged.length > 1 ? 's' : '');
+    const fields = document.getElementById('dmgFields-' + vi);
+    damaged.forEach(([idx]) => {
+      if (!fields.querySelector('[data-idx="' + idx + '"]')) {
+        const d = document.createElement('div');
+        d.className = 'dmg-field';
+        d.setAttribute('data-idx', idx);
+        d.innerHTML = `<label>${CHECK_ITEMS[idx]}</label>
+          <textarea placeholder="Describe — location on truck, size, severity…">${v.damageNotes[idx] || ''}</textarea>`;
+        fields.appendChild(d);
+      }
+    });
+    Array.from(fields.querySelectorAll('[data-idx]')).forEach(row => {
+      if (v.damageState[row.getAttribute('data-idx')] !== 'dmg') row.remove();
+    });
+  } else {
+    panel.classList.remove('show');
+    counter.classList.remove('show');
+  }
+}
+
+function handleUpload(evt, vi, zi, label) {
+  const files = Array.from(evt.target.files);
+  if (!files.length) return;
+  const zone = document.getElementById('zone-' + vi + '-' + zi);
+  zone.classList.add('done');
+  document.getElementById('zone-label-' + vi + '-' + zi).textContent = files.length + ' photo' + (files.length > 1 ? 's' : '') + ' — ' + label;
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => { state[vi].photos.push({ src: e.target.result, label }); renderPhotoPreview(vi); };
+    reader.readAsDataURL(f);
+  });
+}
+
+function renderPhotoPreview(vi) {
+  const preview = document.getElementById('photoPreview-' + vi);
+  if (!preview) return;
+  const photos = state[vi].photos;
+  preview.innerHTML = photos.map(p => `<img src="${p.src}" alt="${p.label}" />`).join('');
+}
+
+function nextVehicle() {
+  saveFields();
+  currentIdx++;
+  renderForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function prevVehicle() {
+  saveFields();
+  currentIdx--;
+  renderForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function tryComplete() {
+  saveFields();
+  renderForm();
+}
+
+function renderSummary() {
+  const grid = document.getElementById('summaryGrid');
+  if (!grid) return;
+  grid.innerHTML = state.map(v => {
+    const hasDmg = Object.values(v.damageState).some(s => s === 'dmg');
+    let cls = 'sc', st = 'Pending';
+    if (v.unavailable) { cls += ' unavail'; st = 'Unavail'; }
+    else if (v.done && hasDmg) { cls += ' dmg'; st = 'Damage'; }
+    else if (v.done) { cls += ' ok'; st = 'Cleared'; }
+    else cls += ' pending';
+    return `<div class="${cls}"><div class="sc-id">${v.id}</div><div class="sc-st">${st}</div></div>`;
+  }).join('');
+}
+
+function submitAll() {
+  const allAccounted = state.every(v => v.done || v.unavailable);
+  const errEl = document.getElementById('errorMsg');
+  if (!allAccounted) {
+    const pending = state.filter(v => !v.done && !v.unavailable).map(v => v.id).join(', ');
+    errEl.textContent = 'Still pending: ' + pending + ' — complete or mark unavailable before submitting.';
+    errEl.classList.add('show');
+    return;
+  }
+  const sig = document.getElementById('signature');
+  if (!sig || !sig.value.trim()) {
+    errEl.textContent = 'Please enter your manager signature before submitting.';
+    errEl.classList.add('show');
+    return;
+  }
+  errEl.classList.remove('show');
+  const payload = buildPayload(sig.value.trim());
+  sendToSheets(payload);
+}
+
+function buildPayload(signature) {
+  const now = new Date();
+  const rows = state.map(v => {
+    const dmgItems = Object.entries(v.damageState).filter(([,s]) => s === 'dmg').map(([i]) => CHECK_ITEMS[i]).join('; ');
+    const dmgNotes = Object.entries(v.damageNotes).filter(([,n]) => n).map(([i,n]) => CHECK_ITEMS[i] + ': ' + n).join(' | ');
+    const checkSummary = CHECK_ITEMS.map((item, i) => item + '=' + (v.damageState[i] || 'unchecked')).join(', ');
+    return {
+      date: now.toLocaleDateString('en-US'),
+      time: now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }),
+      vehicle_id: v.id,
+      inspector: v.inspector,
+      inspection_time: v.time,
+      license_plate: v.plate,
+      status: v.unavailable ? 'UNAVAILABLE' : (Object.values(v.damageState).some(s => s === 'dmg') ? 'DAMAGE FOUND' : 'CLEARED'),
+      damage_items: dmgItems,
+      damage_notes: dmgNotes,
+      general_notes: v.notes,
+      maintenance_referral: v.maintRef,
+      checklist_detail: checkSummary,
+      photo_count: v.photos.length,
+      submitted_by: signature
+    };
+  });
+  return { rows, submitted_by: signature, date: now.toLocaleDateString('en-US') };
+}
+
+async function sendToSheets(payload) {
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById('sendingSpinner').classList.add('show');
+
+  if (SHEET_URL === 'https://script.google.com/a/macros/cannatas.com/s/AKfycbwugkIhn2z1MHl4Ebsj5fbIRjqC0rLhfr6R-fzcVhZaCW5glkQB05W6DezKyQyDn056/exec') {
+    // Demo mode — simulate submission
+    await new Promise(r => setTimeout(r, 1800));
+    showSuccess(payload);
+    return;
+  }
+
+  try {
+    await fetch(SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    showSuccess(payload);
+  } catch (e) {
+    document.getElementById('sendingSpinner').classList.remove('show');
+    document.getElementById('formArea').style.display = 'block';
+    alert('Connection error — check your network and try again. Error: ' + e.message);
+  }
+}
+
+function showSuccess(payload) {
+  document.getElementById('sendingSpinner').classList.remove('show');
+  const ss = document.getElementById('successScreen');
+  ss.classList.add('show');
+  const damaged = state.filter(v => Object.values(v.damageState).some(s => s === 'dmg'));
+  const unavail = state.filter(v => v.unavailable);
+  const cleared = state.filter(v => v.done && !Object.values(v.damageState).some(s => s === 'dmg'));
+  document.getElementById('successDetail').textContent =
+    `Submitted by ${payload.submitted_by} · ${cleared.length} cleared · ${damaged.length} with damage · ${unavail.length} unavailable · Logged to Google Sheets`;
+  ss.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetForm() {
+  state.forEach(v => {
+    v.done = false; v.unavailable = false;
+    v.inspector = ''; v.plate = ''; v.time = '';
+    v.damageState = {}; v.damageNotes = {};
+    v.notes = ''; v.maintRef = ''; v.photos = [];
+  });
+  currentIdx = 0;
+  document.getElementById('successScreen').classList.remove('show');
+  document.getElementById('formArea').style.display = 'block';
+  renderForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+initDate();
+renderForm();
+</script>
+</body>
+</html>
