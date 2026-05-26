@@ -206,7 +206,7 @@
 <script>
 // ─── CONFIGURATION ────────────────────────────────────────────────────────────
 // Replace this URL after you deploy the Google Apps Script (see SETUP-GUIDE.md)
-const SHEET_URL = 'https://script.google.com/a/macros/cannatas.com/s/AKfycbwugkIhn2z1MHl4Ebsj5fbIRjqC0rLhfr6R-fzcVhZaCW5glkQB05W6DezKyQyDn056/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbw7oUMZqwnqIpS64OMaBhkF7502aWUE9UKaC_2JwpAPhPKDBBiwfP8wpietY4KW11r-/exec';
 
 const VEHICLES = [
   { id: 'TRUCK-1', label: 'Truck 1' },
@@ -623,7 +623,7 @@ async function sendToSheets(payload) {
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('sendingSpinner').classList.add('show');
 
-  if (SHEET_URL === 'https://script.google.com/a/macros/cannatas.com/s/AKfycbwugkIhn2z1MHl4Ebsj5fbIRjqC0rLhfr6R-fzcVhZaCW5glkQB05W6DezKyQyDn056/exec') {
+  if (SHEET_URL === 'https://script.google.com/macros/s/AKfycbw7oUMZqwnqIpS64OMaBhkF7502aWUE9UKaC_2JwpAPhPKDBBiwfP8wpietY4KW11r-/exec') {
     // Demo mode — simulate submission
     await new Promise(r => setTimeout(r, 1800));
     showSuccess(payload);
