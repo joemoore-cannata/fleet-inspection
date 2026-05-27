@@ -595,12 +595,13 @@ function submitAll() {
 
 function buildPayload(signature) {
   const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US');
   const rows = state.map(v => {
     const dmgItems = Object.entries(v.damageState).filter(([,s]) => s === 'dmg').map(([i]) => CHECK_ITEMS[i]).join('; ');
     const dmgNotes = Object.entries(v.damageNotes).filter(([,n]) => n).map(([i,n]) => CHECK_ITEMS[i] + ': ' + n).join(' | ');
     const checkSummary = CHECK_ITEMS.map((item, i) => item + '=' + (v.damageState[i] || 'unchecked')).join(', ');
     return {
-      date: now.toLocaleDateString('en-US'),
+      date: dateStr,
       time: now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }),
       vehicle_id: v.id,
       inspector: v.inspector,
@@ -613,10 +614,11 @@ function buildPayload(signature) {
       maintenance_referral: v.maintRef,
       checklist_detail: checkSummary,
       photo_count: v.photos.length,
+      photos: v.photos, // base64 photos for Drive upload
       submitted_by: signature
     };
   });
-  return { rows, submitted_by: signature, date: now.toLocaleDateString('en-US') };
+  return { rows, submitted_by: signature, date: dateStr };
 }
 
 async function sendToSheets(payload) {
@@ -624,19 +626,28 @@ async function sendToSheets(payload) {
   document.getElementById('sendingSpinner').classList.add('show');
 
   try {
-    const encoded = encodeURIComponent(JSON.stringify(payload));
-    const url = SHEET_URL + '?data=' + encoded;
+    // Send each vehicle separately to handle photo data
+    for (const row of payload.rows) {
+      const vehiclePayload = {
+        rows: [row],
+        photos: row.photos || [],
+        vehicle_id: row.vehicle_id,
+        date: payload.date,
+        submitted_by: payload.submitted_by
+      };
+      const encoded = encodeURIComponent(JSON.stringify(vehiclePayload));
+      const url = SHEET_URL + '?data=' + encoded;
 
-    // Hidden iframe bypasses Google Workspace account interference
-    await new Promise((resolve) => {
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
-      iframe.src = url;
-      iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
-      iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
-      document.body.appendChild(iframe);
-      setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 6000);
-    });
+      await new Promise((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
+        iframe.src = url;
+        iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+        iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+        document.body.appendChild(iframe);
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 8000);
+      });
+    }
 
     showSuccess(payload);
   } catch (e) {
