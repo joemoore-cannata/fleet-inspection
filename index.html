@@ -352,15 +352,7 @@ function buildVehicleForm(vi) {
       </div>
     </div>`).join('');
 
-  const uploadZones = ['Front','Rear','Driver side','Passenger side','Interior / cargo','Other'].map((label, zi) =>
-    `<label for="upload-${vi}-${zi}">
-      <div class="upload-zone" id="zone-${vi}-${zi}">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <p id="zone-label-${vi}-${zi}">${label}</p>
-      </div>
-    </label>
-    <input type="file" id="upload-${vi}-${zi}" accept="image/*" multiple onchange="handleUpload(event,${vi},${zi},'${label}')" />`
-  ).join('');
+  const uploadZones = ''; // Photos handled via Google Forms
 
   return `
     <div class="card">
@@ -393,13 +385,12 @@ function buildVehicleForm(vi) {
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">
+    <div class="card" style="background:#FAEEDA;border-color:#EF9F27;">
+      <div class="card-title" style="color:#633806;">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         Photo documentation
       </div>
-      <div class="upload-grid">${uploadZones}</div>
-      <div class="photo-preview" id="photoPreview-${vi}"></div>
+      <p style="font-size:13px;color:#633806;">📸 If damage is found, you will be prompted to upload photos via Google Forms after submitting the daily log. Photos are stored securely in Google Drive.</p>
     </div>
 
     <div class="card">
@@ -632,24 +623,6 @@ function buildPayload(signature) {
   return { rows, submitted_by: signature, date: dateStr };
 }
 
-// Compress image to base64 under ~200KB for URL transmission
-async function compressPhoto(photo) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if (w > h && w > MAX) { h = h * MAX / w; w = MAX; }
-      else if (h > MAX) { w = w * MAX / h; h = MAX; }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve({ src: canvas.toDataURL('image/jpeg', 0.5), label: photo.label });
-    };
-    img.src = photo.src;
-  });
-}
-
 async function sendToSheets(payload) {
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('sendingSpinner').classList.add('show');
@@ -697,32 +670,7 @@ async function sendToSheets(payload) {
       });
     }
 
-    // Send photos via GET with compression (one photo per request)
-    for (const row of payload.rows) {
-      if (row.photos && row.photos.length > 0) {
-        for (const photo of row.photos) {
-          const compressed = await compressPhoto(photo);
-          const photoPayload = {
-            action: 'photos',
-            vehicle_id: row.vehicle_id,
-            date: payload.date,
-            submitted_by: payload.submitted_by,
-            photos: [compressed]
-          };
-          const encoded = encodeURIComponent(JSON.stringify(photoPayload));
-          const url = SHEET_URL + '?data=' + encoded;
-          await new Promise((resolve) => {
-            const iframe = document.createElement('iframe');
-            iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
-            iframe.src = url;
-            iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
-            iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
-            document.body.appendChild(iframe);
-            setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 10000);
-          });
-        }
-      }
-    }
+    // Photos handled via Google Forms after submission
 
     showSuccess(payload);
   } catch (e) {
