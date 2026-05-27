@@ -688,3 +688,22 @@ function showSuccess(payload) {
   ss.scrollIntoView({ behavior: 'smooth' });
 }
 
+function resetForm() {
+  state.forEach(v => {
+    v.done = false; v.unavailable = false;
+    v.inspector = ''; v.plate = ''; v.time = '';
+    v.damageState = {}; v.damageNotes = {};
+    v.notes = ''; v.maintRef = ''; v.photos = [];
+  });
+  currentIdx = 0;
+  document.getElementById('successScreen').classList.remove('show');
+  document.getElementById('formArea').style.display = 'block';
+  renderForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+initDate();
+renderForm();
+</script>
+</body>
+</html>
