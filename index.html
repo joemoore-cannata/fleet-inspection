@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -626,6 +627,24 @@ function buildPayload(signature) {
   return { rows, submitted_by: signature, date: dateStr };
 }
 
+// Compress image to base64 under ~200KB for URL transmission
+async function compressPhoto(photo) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = h * MAX / w; w = MAX; }
+      else if (h > MAX) { w = w * MAX / h; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve({ src: canvas.toDataURL('image/jpeg', 0.5), label: photo.label });
+    };
+    img.src = photo.src;
+  });
+}
+
 async function sendToSheets(payload) {
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('sendingSpinner').classList.add('show');
@@ -673,46 +692,30 @@ async function sendToSheets(payload) {
       });
     }
 
-    // Send photos via hidden form POST (same method as inspection data)
+    // Send photos via GET with compression (one photo per request)
     for (const row of payload.rows) {
       if (row.photos && row.photos.length > 0) {
-        const photoPayload = {
-          action: 'photos',
-          vehicle_id: row.vehicle_id,
-          date: payload.date,
-          submitted_by: payload.submitted_by,
-          photos: row.photos
-        };
-        await new Promise((resolve) => {
-          const iframe = document.createElement('iframe');
-          iframe.name = 'photo_frame_' + Date.now();
-          iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
-          document.body.appendChild(iframe);
-
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = SHEET_URL;
-          form.target = iframe.name;
-          form.style.display = 'none';
-
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = 'data';
-          input.value = JSON.stringify(photoPayload);
-          form.appendChild(input);
-          document.body.appendChild(form);
-
-          iframe.onload = () => {
-            try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
-            resolve();
+        for (const photo of row.photos) {
+          const compressed = await compressPhoto(photo);
+          const photoPayload = {
+            action: 'photos',
+            vehicle_id: row.vehicle_id,
+            date: payload.date,
+            submitted_by: payload.submitted_by,
+            photos: [compressed]
           };
-          setTimeout(() => {
-            try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
-            resolve();
-          }, 10000);
-
-          form.submit();
-        });
+          const encoded = encodeURIComponent(JSON.stringify(photoPayload));
+          const url = SHEET_URL + '?data=' + encoded;
+          await new Promise((resolve) => {
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
+            iframe.src = url;
+            iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+            iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+            document.body.appendChild(iframe);
+            setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 10000);
+          });
+        }
       }
     }
 
