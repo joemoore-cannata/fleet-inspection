@@ -206,7 +206,7 @@
 <script>
 // ─── CONFIGURATION ────────────────────────────────────────────────────────────
 // Replace this URL after you deploy the Google Apps Script (see SETUP-GUIDE.md)
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbw7oUMZqwnqIpS64OMaBhkF7502aWUE9UKaC_2JwpAPhPKDBBiwfP8wpietY4KW11r-/exec';
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyYAAUcwcQsnqhFsQkZtX5hz46yoebHl3w522gK0_ifd6N9OpICvpWOqUE3AnCNCUirNA/exec';
 
 const VEHICLES = [
   { id: 'TRUCK-1', label: 'Truck 1' },
@@ -623,25 +623,26 @@ async function sendToSheets(payload) {
   document.getElementById('formArea').style.display = 'none';
   document.getElementById('sendingSpinner').classList.add('show');
 
-  if (SHEET_URL === 'https://script.google.com/macros/s/AKfycbw7oUMZqwnqIpS64OMaBhkF7502aWUE9UKaC_2JwpAPhPKDBBiwfP8wpietY4KW11r-/exec') {
-    // Demo mode — simulate submission
-    await new Promise(r => setTimeout(r, 1800));
-    showSuccess(payload);
-    return;
-  }
-
   try {
-    await fetch(SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    const url = SHEET_URL + '?data=' + encoded;
+
+    // Hidden iframe bypasses Google Workspace account interference
+    await new Promise((resolve) => {
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
+      iframe.src = url;
+      iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+      iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
+      document.body.appendChild(iframe);
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 6000);
     });
+
     showSuccess(payload);
   } catch (e) {
     document.getElementById('sendingSpinner').classList.remove('show');
     document.getElementById('formArea').style.display = 'block';
-    alert('Connection error — check your network and try again. Error: ' + e.message);
+    alert('Connection error — try again.');
   }
 }
 
