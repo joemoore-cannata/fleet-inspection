@@ -599,10 +599,11 @@ function buildPayload(signature) {
   const rows = state.map(v => {
     const dmgItems = Object.entries(v.damageState).filter(([,s]) => s === 'dmg').map(([i]) => CHECK_ITEMS[i]).join('; ');
     const dmgNotes = Object.entries(v.damageNotes).filter(([,n]) => n).map(([i,n]) => CHECK_ITEMS[i] + ': ' + n).join(' | ');
-    // Build complete damageState with all 16 items explicitly set
+    // Build compact damageState — only store non-unchecked values to keep URL small
     const fullDamageState = {};
     for (let i = 0; i < 16; i++) {
-      fullDamageState[String(i)] = v.damageState[i] || v.damageState[String(i)] || (v.unavailable ? 'na' : 'unchecked');
+      const val = v.damageState[i] || v.damageState[String(i)] || (v.unavailable ? 'na' : 'u');
+      fullDamageState[String(i)] = val;
     }
     return {
       date: dateStr,
@@ -630,10 +631,11 @@ async function sendToSheets(payload) {
   document.getElementById('sendingSpinner').classList.add('show');
 
   try {
-    // Step 1 — Send inspection data via iframe (bypasses Workspace CORS)
+    // Step 1 — Send inspection data via iframe, photos stripped to keep URL small
     for (const row of payload.rows) {
+      const { photos, ...rowWithoutPhotos } = row;
       const rowPayload = {
-        rows: [row],
+        rows: [rowWithoutPhotos],
         date: payload.date,
         vehicle_id: row.vehicle_id,
         submitted_by: payload.submitted_by
@@ -651,7 +653,7 @@ async function sendToSheets(payload) {
       });
     }
 
-    // Step 2 — Send photos via POST fetch (handles large base64 data)
+    // Step 2 — Send photos separately via POST (handles large base64 data)
     for (const row of payload.rows) {
       if (row.photos && row.photos.length > 0) {
         const photoPayload = {
@@ -668,7 +670,7 @@ async function sendToSheets(payload) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(photoPayload)
           });
-        } catch(e) { console.log('Photo upload note:', e.message); }
+        } catch(e) { console.log('Photo upload:', e.message); }
       }
     }
 
