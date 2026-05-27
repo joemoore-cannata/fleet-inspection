@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,6 +198,12 @@
     </div>
     <h2>Daily log submitted!</h2>
     <p id="successDetail"></p>
+    <div id="photoPrompt" style="display:none;margin-top:16px;">
+      <a id="photoFormLink" href="" target="_blank" style="display:inline-block;background:#E24B4A;color:white;border-radius:8px;padding:12px 22px;font-size:14px;font-weight:600;text-decoration:none;margin-bottom:12px;">
+        📸 Upload Damage Photos
+      </a>
+      <p style="font-size:12px;color:#3B6D11;opacity:0.8;">Tap above to upload photos for the damaged trucks</p>
+    </div>
     <button class="reset-btn" onclick="resetForm()">Start new inspection day</button>
   </div>
 
@@ -736,6 +741,18 @@ function showSuccess(payload) {
   const cleared = state.filter(v => v.done && !Object.values(v.damageState).some(s => s === 'dmg'));
   document.getElementById('successDetail').textContent =
     `Submitted by ${payload.submitted_by} · ${cleared.length} cleared · ${damaged.length} with damage · ${unavail.length} unavailable · Logged to Google Sheets`;
+
+  // Show photo upload button if any trucks have damage
+  if (damaged.length > 0) {
+    const photoPrompt = document.getElementById('photoPrompt');
+    const photoLink = document.getElementById('photoFormLink');
+    const today = new Date().toLocaleDateString('en-US');
+    // Pre-fill date in Google Form
+    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSewwv2kn1MRO3pcU_CWVgjVlK2nvc20dLQ_7eqSF34m2nQ95g/viewform?usp=pp_url&entry.DATE=' + encodeURIComponent(today);
+    photoLink.href = formUrl;
+    photoPrompt.style.display = 'block';
+  }
+
   ss.scrollIntoView({ behavior: 'smooth' });
 }
 
