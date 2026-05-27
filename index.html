@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -599,7 +600,6 @@ function buildPayload(signature) {
   const rows = state.map(v => {
     const dmgItems = Object.entries(v.damageState).filter(([,s]) => s === 'dmg').map(([i]) => CHECK_ITEMS[i]).join('; ');
     const dmgNotes = Object.entries(v.damageNotes).filter(([,n]) => n).map(([i,n]) => CHECK_ITEMS[i] + ': ' + n).join(' | ');
-    const checkSummary = CHECK_ITEMS.map((item, i) => item + '=' + (v.damageState[i] || 'unchecked')).join(', ');
     return {
       date: dateStr,
       time: now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }),
@@ -612,9 +612,9 @@ function buildPayload(signature) {
       damage_notes: dmgNotes,
       general_notes: v.notes,
       maintenance_referral: v.maintRef,
-      checklist_detail: checkSummary,
+      damageState: v.damageState,
       photo_count: v.photos.length,
-      photos: v.photos, // base64 photos for Drive upload
+      photos: v.photos,
       submitted_by: signature
     };
   });
