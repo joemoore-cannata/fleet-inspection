@@ -631,7 +631,7 @@ async function sendToSheets(payload) {
   document.getElementById('sendingSpinner').classList.add('show');
 
   try {
-    // Step 1 — Send inspection data via iframe, photos stripped to keep URL small
+    // Use hidden form POST — no URL length limits, bypasses CORS
     for (const row of payload.rows) {
       const { photos, ...rowWithoutPhotos } = row;
       const rowPayload = {
@@ -640,20 +640,40 @@ async function sendToSheets(payload) {
         vehicle_id: row.vehicle_id,
         submitted_by: payload.submitted_by
       };
-      const encoded = encodeURIComponent(JSON.stringify(rowPayload));
-      const url = SHEET_URL + '?data=' + encoded;
+
       await new Promise((resolve) => {
         const iframe = document.createElement('iframe');
+        iframe.name = 'submit_frame_' + Date.now();
         iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
-        iframe.src = url;
-        iframe.onload = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
-        iframe.onerror = () => { try { document.body.removeChild(iframe); } catch(e){} resolve(); };
         document.body.appendChild(iframe);
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 8000);
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = SHEET_URL;
+        form.target = iframe.name;
+        form.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'data';
+        input.value = JSON.stringify(rowPayload);
+        form.appendChild(input);
+        document.body.appendChild(form);
+
+        iframe.onload = () => {
+          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+          resolve();
+        };
+        setTimeout(() => {
+          try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+          resolve();
+        }, 8000);
+
+        form.submit();
       });
     }
 
-    // Step 2 — Send photos separately via POST (handles large base64 data)
+    // Send photos separately via fetch POST
     for (const row of payload.rows) {
       if (row.photos && row.photos.length > 0) {
         const photoPayload = {
