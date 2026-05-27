@@ -673,7 +673,7 @@ async function sendToSheets(payload) {
       });
     }
 
-    // Send photos separately via fetch POST
+    // Send photos via hidden form POST (same method as inspection data)
     for (const row of payload.rows) {
       if (row.photos && row.photos.length > 0) {
         const photoPayload = {
@@ -683,14 +683,36 @@ async function sendToSheets(payload) {
           submitted_by: payload.submitted_by,
           photos: row.photos
         };
-        try {
-          await fetch(SHEET_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(photoPayload)
-          });
-        } catch(e) { console.log('Photo upload:', e.message); }
+        await new Promise((resolve) => {
+          const iframe = document.createElement('iframe');
+          iframe.name = 'photo_frame_' + Date.now();
+          iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
+          document.body.appendChild(iframe);
+
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = SHEET_URL;
+          form.target = iframe.name;
+          form.style.display = 'none';
+
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'data';
+          input.value = JSON.stringify(photoPayload);
+          form.appendChild(input);
+          document.body.appendChild(form);
+
+          iframe.onload = () => {
+            try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+            resolve();
+          };
+          setTimeout(() => {
+            try { document.body.removeChild(form); document.body.removeChild(iframe); } catch(e) {}
+            resolve();
+          }, 10000);
+
+          form.submit();
+        });
       }
     }
 
