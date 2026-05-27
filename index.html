@@ -626,18 +626,16 @@ async function sendToSheets(payload) {
   document.getElementById('sendingSpinner').classList.add('show');
 
   try {
-    // Send each vehicle separately to handle photo data
+    // Step 1 — Send inspection data via iframe (bypasses Workspace CORS)
     for (const row of payload.rows) {
-      const vehiclePayload = {
+      const rowPayload = {
         rows: [row],
-        photos: row.photos || [],
-        vehicle_id: row.vehicle_id,
         date: payload.date,
+        vehicle_id: row.vehicle_id,
         submitted_by: payload.submitted_by
       };
-      const encoded = encodeURIComponent(JSON.stringify(vehiclePayload));
+      const encoded = encodeURIComponent(JSON.stringify(rowPayload));
       const url = SHEET_URL + '?data=' + encoded;
-
       await new Promise((resolve) => {
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'display:none;position:absolute;width:0;height:0;';
@@ -647,6 +645,27 @@ async function sendToSheets(payload) {
         document.body.appendChild(iframe);
         setTimeout(() => { try { document.body.removeChild(iframe); } catch(e){} resolve(); }, 8000);
       });
+    }
+
+    // Step 2 — Send photos via POST fetch (handles large base64 data)
+    for (const row of payload.rows) {
+      if (row.photos && row.photos.length > 0) {
+        const photoPayload = {
+          action: 'photos',
+          vehicle_id: row.vehicle_id,
+          date: payload.date,
+          submitted_by: payload.submitted_by,
+          photos: row.photos
+        };
+        try {
+          await fetch(SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(photoPayload)
+          });
+        } catch(e) { console.log('Photo upload note:', e.message); }
+      }
     }
 
     showSuccess(payload);
@@ -669,22 +688,3 @@ function showSuccess(payload) {
   ss.scrollIntoView({ behavior: 'smooth' });
 }
 
-function resetForm() {
-  state.forEach(v => {
-    v.done = false; v.unavailable = false;
-    v.inspector = ''; v.plate = ''; v.time = '';
-    v.damageState = {}; v.damageNotes = {};
-    v.notes = ''; v.maintRef = ''; v.photos = [];
-  });
-  currentIdx = 0;
-  document.getElementById('successScreen').classList.remove('show');
-  document.getElementById('formArea').style.display = 'block';
-  renderForm();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-initDate();
-renderForm();
-</script>
-</body>
-</html>
